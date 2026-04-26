@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Est Copter — Aviație Agricolă de Precizie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Barlow+Condensed:wght@400;600;700;900&family=Nunito+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky0:#05102a; --sky1:#0c2d6b; --sky2:#1a6ab8; --sky3:#5ab0e0;
+  --sky4:#aad8f0; --sky5:#e8d49a; --sky6:#e87b2a;
+  --earth1:#1a3a0d; --earth2:#2d6b1a; --earth3:#4a9e28;
+  --wheat1:#c8902a; --wheat2:#e8c060; --wheat3:#f5d878;
+  --gold:#e8a020; --amber:#c4700a; --cream:#fdf8ef;
+  --deep:#080f22; --red:#d63b2f;
+  --txt:#0f1e0a; --muted:#7a8a72;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--deep);color:var(--txt);font-family:'Nunito Sans',sans-serif;overflow-x:hidden}
+@media(pointer:fine){body{cursor:none}}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:var(--gold)}
+
+/* cursor */
+.cur,.cring{position:fixed;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);display:none}
+@media(pointer:fine){
+  .cur{display:block;width:8px;height:8px;background:var(--gold);border-radius:50%;transition:width .15s,height .15s}
+  .cring{display:block;width:28px;height:28px;border:1.5px solid rgba(232,160,32,.55);border-radius:50%}
+}
+.pbar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--sky6));z-index:400;box-shadow:0 0 8px var(--gold)}
+
+/* reveals */
+.rv{opacity:0;transform:translateY(36px);transition:opacity .9s ease,transform .9s ease}
+.rv.on{opacity:1;transform:translateY(0)}
+.rvs{opacity:0;transform:scale(.95);transition:opacity .8s ease,transform .8s ease}
+.rvs.on{opacity:1;transform:scale(1)}
+
+/* ══ NAV ══ */
+nav{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;justify-content:space-between;align-items:center;
+  padding:0 clamp(16px,4vw,52px);height:66px;
+  background:linear-gradient(to bottom,rgba(5,16,42,.96),transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid rgba(232,160,32,.1)}
+.nlogo{display:flex;align-items:center;gap:11px}
+.nlogo-ic{width:36px;height:36px;background:linear-gradient(135deg,var(--gold),var(--sky6));border-radius:7px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  box-shadow:0 0 18px rgba(232,160,32,.4)}
+.nlogo-txt{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:21px;letter-spacing:3px;color:var(--cream)}
+.nlogo-sub{font-size:9px;letter-spacing:3px;color:var(--gold);display:block;margin-top:-3px;font-family:'Barlow Condensed',sans-serif}
+.nlinks{display:flex;gap:28px;list-style:none}
+.nlinks a{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:12px;letter-spacing:1.5px;
+  text-transform:uppercase;color:rgba(253,248,239,.6);text-decoration:none;transition:color .25s}
+.nlinks a:hover{color:var(--gold)}
+@media(max-width:820px){.nlinks{display:none}}
+.ncta{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:12px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--deep);
+  background:linear-gradient(135deg,var(--gold),var(--sky6));
+  border:none;padding:9px 22px;border-radius:4px;cursor:pointer;
+  box-shadow:0 4px 18px rgba(232,160,32,.4);transition:box-shadow .3s,transform .2s}
+.ncta:hover{box-shadow:0 6px 30px rgba(232,160,32,.7);transform:translateY(-1px)}
+@media(max-width:640px){.ncta{display:none}}
+.ham{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:6px}
+@media(max-width:820px){.ham{display:flex}}
+.ham span{display:block;width:22px;height:2px;background:var(--cream);border-radius:1px;transition:transform .3s,opacity .3s}
+.ham.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.ham.open span:nth-child(2){opacity:0}
+.ham.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.mmenu{display:none;position:fixed;inset:0;z-index:290;background:rgba(5,16,42,.98);backdrop-filter:blur(20px);
+  flex-direction:column;align-items:center;justify-content:center;gap:22px}
+.mmenu.open{display:flex}
+.mmenu a{font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(34px,8vw,52px);letter-spacing:3px;color:var(--cream);
+  text-decoration:none;text-transform:uppercase;transition:color .2s}
+.mmenu a:hover{color:var(--gold)}
+
+/* ══════════════════════════════════════════
+   HERO — full sky scene with heli INSIDE
+══════════════════════════════════════════ */
+#hero{position:relative;min-height:100vh;overflow:hidden;display:flex;align-items:flex-end}
+
+/* Sky layers */
+.sky-layer{position:absolute;inset:0;
+  background:linear-gradient(180deg,
+    #040d1e 0%,#05102a 8%,#0c2d6b 22%,
+    #1a6ab8 42%,#4aa8d8 58%,
+    #90cce8 72%,#d4e8f4 82%,
+    #eedfa0 90%,#e8a040 96%,#e06018 100%)}
+/* atmospheric haze near horizon */
+.sky-haze{position:absolute;bottom:0;left:0;right:0;height:35%;
+  background:linear-gradient(to top,rgba(232,160,32,.28) 0%,rgba(220,120,40,.1) 40%,transparent 100%)}
+/* sun disc */
+.sun-disc{position:absolute;bottom:18%;left:58%;transform:translateX(-50%);
+  width:clamp(80px,12vw,160px);height:clamp(80px,12vw,160px);border-radius:50%;
+  background:radial-gradient(circle,#fff7d0 0%,#ffe060 25%,#ff9820 55%,rgba(232,80,20,.15) 80%,transparent 100%);
+  box-shadow:0 0 80px 30px rgba(255,180,30,.5),0 0 200px 80px rgba(255,100,20,.2);
+  filter:blur(.5px)}
+/* sun rays */
+.sun-rays{position:absolute;bottom:14%;left:58%;transform:translateX(-50%);
+  width:min(700px,120vw);height:min(500px,80vh);
+  background:conic-gradient(from 260deg at 50% 100%,
+    transparent 0deg,rgba(255,200,60,.05) 3deg,transparent 7deg,
+    rgba(255,210,80,.07) 12deg,transparent 17deg,
+    rgba(255,200,60,.04) 22deg,transparent 28deg,
+    rgba(255,220,80,.08) 33deg,transparent 39deg,
+    rgba(255,200,60,.05) 45deg,transparent 52deg);
+  animation:rayRot 18s ease-in-out infinite alternate}
+@keyframes rayRot{0%{transform:translateX(-50%) rotate(-3deg);opacity:.7}100%{transform:translateX(-50%) rotate(3deg);opacity:1}}
+
+/* ground strip */
+.ground{position:absolute;bottom:0;left:0;right:0;height:clamp(80px,18vh,200px);
+  background:linear-gradient(to top,#0f2808 0%,#1a3a0d 30%,#2d6b1a 70%,transparent 100%)}
+/* animated crop rows */
+.crop-rows{position:absolute;bottom:0;left:0;right:0;height:clamp(70px,15vh,160px);
+  background-image:repeating-linear-gradient(
+    90deg,
+    transparent 0,transparent 14px,
+    rgba(74,158,40,.55) 14px,rgba(74,158,40,.55) 18px,
+    transparent 18px,transparent 26px,
+    rgba(200,144,42,.45) 26px,rgba(200,144,42,.45) 29px
+  );
+  mask-image:linear-gradient(to top,black 40%,transparent 100%);
+  animation:cropScroll 12s linear infinite}
+@keyframes cropScroll{from{background-position:0 0}to{background-position:200px 0}}
+
+/* ── FLOATING AGRICULTURAL ELEMENTS (clouds with grain) ── */
+.agri-float{position:absolute;pointer-events:none}
+
+/* actual clouds */
+.cloud-real{
+  position:absolute;
+  background:rgba(255,255,255,.82);
+  border-radius:50%;
+  filter:blur(0);
+  will-change:transform;
+}
+.cloud-wrap{position:absolute;filter:drop-shadow(0 8px 20px rgba(0,0,0,.08));animation:cloudMove linear infinite}
+@keyframes cloudMove{from{transform:translateX(calc(110vw))}to{transform:translateX(-320px)}}
+
+/* WHEAT STALK floating element */
+.wheat-float{
+  position:absolute;
+  opacity:0;
+  animation:wheatFloat ease-in-out infinite;
+}
+@keyframes wheatFloat{
+  0%{opacity:0;transform:translate(0,0) rotate(0deg)}
+  10%{opacity:.7}
+  80%{opacity:.4}
+  100%{opacity:0;transform:translate(var(--dx,40px),var(--dy,-80px)) rotate(var(--dr,15deg))}
+}
+/* corn kernel */
+.corn-float{
+  position:absolute;
+  opacity:0;
+  animation:cornDrift ease-in-out infinite;
+}
+@keyframes cornDrift{
+  0%{opacity:0;transform:translate(0,10px) scale(0)}
+  15%{opacity:.8;transform:translate(0,0) scale(1)}
+  85%{opacity:.3}
+  100%{opacity:0;transform:translate(var(--dx,60px),var(--dy,-100px)) scale(.6) rotate(var(--dr,30deg))}
+}
+
+/* ── HERO HELICOPTER (lives in the sky, NOT fixed) ── */
+#hero-heli{
+  position:absolute;
+  z-index:20;
+  /* starts at top-right of sky */
+  animation:heliPath 22s ease-in-out infinite;
+  filter:drop-shadow(0 8px 24px rgba(0,0,0,.45));
+}
+@keyframes heliPath{
+  /* Sweeps gracefully across the sky scene */
+  0%  {left:72%;top:10%;transform:rotate(-2deg) scaleX(1)}
+  12% {left:88%;top:7%; transform:rotate(-3deg) scaleX(1)}
+  28% {left:55%;top:12%;transform:rotate(-1deg) scaleX(1)}
+  42% {left:22%;top:22%;transform:rotate(2deg) scaleX(1)}
+  50% {left:8%; top:18%;transform:rotate(-1deg) scaleX(1)}
+  62% {left:30%;top:10%;transform:rotate(-3deg) scaleX(1)}
+  75% {left:62%;top:16%;transform:rotate(1deg) scaleX(1)}
+  88% {left:80%;top:8%; transform:rotate(-2deg) scaleX(1)}
+  100%{left:72%;top:10%;transform:rotate(-2deg) scaleX(1)}
+}
+/* heli body natural float */
+.hb-float{animation:hFloat 3.4s ease-in-out infinite}
+@keyframes hFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+/* rotor spin */
+.hr-main{animation:rSpin .22s linear infinite}
+.hr-tail{animation:rSpin .14s linear infinite}
+@keyframes rSpin{to{transform:rotate(360deg)}}
+/* spray drops */
+.hsp{animation:hsDrop 1s ease-in infinite;opacity:0}
+.hsp:nth-child(1){animation-delay:.00s}.hsp:nth-child(2){animation-delay:.14s}
+.hsp:nth-child(3){animation-delay:.28s}.hsp:nth-child(4){animation-delay:.42s}
+.hsp:nth-child(5){animation-delay:.56s}.hsp:nth-child(6){animation-delay:.70s}
+@keyframes hsDrop{
+  0%{opacity:0;transform:translateY(0)}
+  12%{opacity:.9}
+  100%{opacity:0;transform:translateY(60px)}
+}
+/* beacon */
+.hbeac{animation:bFlash .7s step-end infinite}
+@keyframes bFlash{0%{opacity:1}50%{opacity:.05}}
+/* nav lights */
+.hnav-r{animation:bFlash 1.1s infinite}
+.hnav-g{animation:bFlash 1.1s .55s infinite}
+/* exhaust */
+.hexh{animation:exhaust 2s ease-out infinite}
+@keyframes exhaust{0%{opacity:.4;transform:scaleX(1) scaleY(1)}100%{opacity:0;transform:scaleX(2.5) scaleY(1.8)}}
+
+/* hero text content — sits above everything */
+.hero-content{
+  position:relative;z-index:25;
+  padding:clamp(90px,12vh,130px) clamp(20px,6vw,80px) clamp(160px,22vh,240px);
+  max-width:min(780px,90vw);
+}
+.badge{display:inline-flex;align-items:center;gap:8px;
+  background:rgba(232,160,32,.14);border:1px solid rgba(232,160,32,.4);
+  backdrop-filter:blur(8px);padding:6px 16px;border-radius:20px;
+  font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--gold);margin-bottom:26px;
+  opacity:0;animation:fadeUp .7s .1s forwards}
+.bdot{width:6px;height:6px;background:var(--gold);border-radius:50%;animation:pulse 2s infinite;box-shadow:0 0 8px var(--gold)}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.6);opacity:.3}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:translateY(0)}}
+
+.hero-h1{font-family:'Playfair Display',serif;font-weight:900;
+  font-size:clamp(48px,11vw,128px);line-height:.9;letter-spacing:-1px;
+  color:var(--cream);text-shadow:0 4px 40px rgba(0,0,0,.5);
+  opacity:0;animation:fadeUp .9s .22s forwards}
+.hero-h1 em{font-style:italic;
+  background:linear-gradient(135deg,var(--gold),var(--sky6));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{margin-top:22px;font-size:clamp(14px,2vw,18px);line-height:1.78;
+  color:rgba(253,248,239,.82);font-weight:300;max-width:540px;
+  text-shadow:0 2px 14px rgba(0,0,0,.5);
+  opacity:0;animation:fadeUp .8s .42s forwards}
+.urge-box{display:flex;align-items:flex-start;gap:12px;margin-top:24px;
+  background:rgba(214,59,47,.1);border:1px solid rgba(214,59,47,.35);
+  border-left:3px solid var(--red);padding:12px 16px;border-radius:2px;
+  max-width:500px;opacity:0;animation:fadeUp .7s .55s forwards}
+.urge-box p{font-size:13px;color:rgba(253,248,239,.85);line-height:1.55}
+.urge-box strong{color:#ff9090;font-weight:700}
+.hero-btns{margin-top:32px;display:flex;flex-wrap:wrap;gap:12px;
+  opacity:0;animation:fadeUp .8s .68s forwards}
+
+/* stats ribbon */
+.stats-ribbon{
+  position:absolute;bottom:0;left:0;right:0;
+  display:grid;grid-template-columns:repeat(4,1fr);
+  background:rgba(5,16,42,.88);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(232,160,32,.2);
+  opacity:0;animation:fadeUp .8s 1s forwards;z-index:26}
+@media(max-width:580px){.stats-ribbon{grid-template-columns:repeat(2,1fr)}}
+.sc{padding:clamp(12px,2.5vh,22px) clamp(14px,3vw,40px);border-right:1px solid rgba(232,160,32,.12);
+  cursor:default;transition:background .3s}
+.sc:hover{background:rgba(232,160,32,.07)}
+.sc:last-child{border-right:none}
+@media(max-width:580px){.sc:nth-child(2){border-right:none}.sc:nth-child(3){border-right:1px solid rgba(232,160,32,.12)}}
+.sc-n{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(26px,4.5vw,44px);
+  background:linear-gradient(135deg,var(--gold),#f5d060);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.sc-l{font-family:'Barlow Condensed',sans-serif;font-size:9px;letter-spacing:2px;
+  text-transform:uppercase;color:rgba(253,248,239,.45);margin-top:3px}
+
+/* ══ TRUST BAR ══ */
+#trust{background:var(--gold);padding:clamp(13px,2vh,18px) clamp(20px,4vw,60px);
+  display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:clamp(14px,3vw,44px)}
+.ti{display:flex;align-items:center;gap:9px;font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--deep)}
+.ti span{font-size:16px}
+
+/* ══ LOSS SECTION ══ */
+#loss{background:linear-gradient(180deg,#080f22 0%,#0d1f0a 100%);
+  padding:clamp(56px,8vh,110px) clamp(20px,5vw,80px);position:relative;overflow:hidden}
+.loss-watermark{position:absolute;right:-10px;top:50%;transform:translateY(-50%);
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(100px,18vw,240px);color:rgba(214,59,47,.05);
+  line-height:1;pointer-events:none;user-select:none;white-space:nowrap}
+.loss-inner{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;
+  gap:clamp(36px,6vw,96px);align-items:center}
+@media(max-width:820px){.loss-inner{grid-template-columns:1fr}}
+.eyebrow{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;
+  letter-spacing:4px;text-transform:uppercase;margin-bottom:14px;
+  display:flex;align-items:center;gap:10px}
+.eyebrow.red{color:var(--red)}
+.eyebrow.gold{color:var(--gold)}
+.eyebrow::before{content:'';width:28px;height:2px;background:currentColor;flex-shrink:0}
+.big-h{font-family:'Playfair Display',serif;font-weight:900;
+  font-size:clamp(36px,6vw,68px);line-height:.95;color:var(--cream);margin-bottom:24px}
+.body-copy{font-size:clamp(14px,1.7vw,16px);line-height:1.8;
+  color:rgba(253,248,239,.68);font-weight:300;margin-bottom:28px}
+.meters{display:flex;flex-direction:column;gap:18px;margin-bottom:36px}
+.mrow{display:grid;grid-template-columns:170px 1fr 72px;align-items:center;gap:12px}
+@media(max-width:460px){.mrow{grid-template-columns:110px 1fr 55px}}
+.mlabel{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:1px;
+  text-transform:uppercase;color:rgba(253,248,239,.55)}
+.mtrack{height:7px;background:rgba(255,255,255,.09);border-radius:4px;overflow:hidden}
+.mfill{height:100%;border-radius:4px;width:0;transition:width 1.9s cubic-bezier(.4,0,.2,1)}
+.mfill.red{background:linear-gradient(90deg,#d63b2f,#ff6b5b);box-shadow:0 0 8px rgba(214,59,47,.5)}
+.mfill.gold{background:linear-gradient(90deg,var(--gold),#f5d060);box-shadow:0 0 8px rgba(232,160,32,.5)}
+.mval{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;
+  color:var(--cream);text-align:right}
+/* loss card */
+.loss-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);
+  border-radius:14px;padding:clamp(22px,3vw,38px);position:relative;overflow:hidden}
+.loss-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--red),var(--gold))}
+.lc-big{font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(52px,9vw,100px);line-height:.9;color:var(--red);
+  text-shadow:0 0 50px rgba(214,59,47,.4);margin-bottom:6px}
+.lc-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(16px,2.3vw,24px);letter-spacing:.5px;color:var(--cream);margin-bottom:8px}
+.lc-sub{font-size:13px;color:rgba(253,248,239,.5);line-height:1.6;margin-bottom:20px}
+.divg{width:36px;height:3px;background:var(--gold);margin-bottom:20px}
+.facts{display:flex;flex-direction:column;gap:13px}
+.fact{display:flex;align-items:flex-start;gap:11px;font-size:13px;
+  color:rgba(253,248,239,.68);line-height:1.6}
+.fact em{font-style:normal;color:var(--gold);font-weight:600}
+
+/* ══ FARM HERO SCENE — second large scenic section ══ */
+#farm-scene{
+  position:relative;min-height:100vh;overflow:hidden;
+  display:flex;align-items:flex-end;
+}
+/* sky for farm scene (daytime) */
+.fs-sky{position:absolute;inset:0;
+  background:linear-gradient(180deg,#1a6ab8 0%,#5ab0e0 40%,#aad8f0 70%,#dff0f8 85%,#f0e8c0 100%)}
+/* horizon glow */
+.fs-haze{position:absolute;bottom:25%;left:0;right:0;height:30%;
+  background:linear-gradient(to top,rgba(255,220,80,.12) 0%,transparent 100%)}
+/* field perspective */
+.fs-field{position:absolute;bottom:0;left:0;right:0;height:55%}
+/* ground */
+.fs-ground{position:absolute;bottom:0;left:0;right:0;height:50%;
+  background:linear-gradient(to top,#1a3a0d 0%,#2d6b1a 30%,#3a8822 65%,transparent 100%)}
+/* WHEAT rows with perspective */
+.fs-wheat-rows{
+  position:absolute;bottom:0;left:0;right:0;height:48%;
+  background-image:repeating-linear-gradient(
+    90deg,
+    transparent 0px,transparent 8px,
+    rgba(200,144,42,.7) 8px,rgba(200,144,42,.7) 13px,
+    transparent 13px,transparent 20px,
+    rgba(232,192,96,.5) 20px,rgba(232,192,96,.5) 24px,
+    transparent 24px,transparent 30px,
+    rgba(74,158,40,.6) 30px,rgba(74,158,40,.6) 34px
+  );
+  mask-image:linear-gradient(to top,black 55%,transparent 100%);
+  animation:wScroll 8s linear infinite;
+  transform-origin:bottom center;transform:perspective(400px) rotateX(12deg);
+}
+@keyframes wScroll{from{background-position:0 0}to{background-position:300px 0}}
+/* distant treeline */
+.fs-trees{position:absolute;bottom:48%;left:0;right:0;height:12%;
+  background:repeating-linear-gradient(
+    90deg,
+    #1a4a0a 0px,#2a6a12 12px,#1a4a0a 18px,
+    #226014 22px,#1a4a0a 30px,#305820 36px,#1a4a0a 42px
+  );
+  clip-path:polygon(
+    0% 100%,2% 40%,4% 100%,6% 30%,8% 100%,10% 50%,12% 100%,
+    14% 25%,16% 100%,18% 40%,20% 100%,22% 35%,24% 100%,
+    26% 45%,28% 100%,30% 30%,32% 100%,34% 55%,36% 100%,
+    38% 28%,40% 100%,42% 42%,44% 100%,46% 38%,48% 100%,
+    50% 50%,52% 100%,54% 32%,56% 100%,58% 44%,60% 100%,
+    62% 35%,64% 100%,66% 48%,68% 100%,70% 28%,72% 100%,
+    74% 40%,76% 100%,78% 36%,80% 100%,82% 52%,84% 100%,
+    86% 30%,88% 100%,90% 42%,92% 100%,94% 38%,96% 100%,98% 46%,100% 100%
+  );
+  opacity:.8}
+/* silo/barn silhouette */
+.fs-silo{position:absolute;right:8%;bottom:48%;width:clamp(30px,5vw,70px);
+  height:clamp(50px,8vw,120px);
+  background:linear-gradient(to top,#1a2a0a,#2a3a18);
+  border-top:0;}
+.fs-silo::before{content:'';position:absolute;top:clamp(-20px,-3vw,-28px);left:-15%;right:-15%;
+  height:clamp(20px,3vw,30px);
+  background:#1a2a0a;
+  clip-path:polygon(50% 0%,100% 100%,0% 100%)}
+/* flock of birds */
+.bird{position:absolute;font-size:clamp(8px,1.5vw,14px);opacity:.6;
+  animation:birdFly linear infinite}
+@keyframes birdFly{
+  from{transform:translate(0,0) scaleX(1)}
+  50%{transform:translate(calc(var(--bw)*0.4),calc(var(--bh)*0.5)) scaleX(1)}
+  100%{transform:translate(var(--bw),var(--bh)) scaleX(1)}
+}
+
+/* FARM HELICOPTER — different one, flies over the field */
+#farm-heli{
+  position:absolute;
+  z-index:20;
+  animation:farmHeliPath 18s ease-in-out infinite;
+  filter:drop-shadow(0 6px 18px rgba(0,0,0,.5));
+}
+@keyframes farmHeliPath{
+  0%  {left:80%;top:22%;transform:rotate(-1deg)}
+  15% {left:92%;top:18%;transform:rotate(-3deg)}
+  30% {left:65%;top:25%;transform:rotate(1deg)}
+  45% {left:35%;top:30%;transform:rotate(2deg)}
+  60% {left:15%;top:25%;transform:rotate(-2deg)}
+  75% {left:40%;top:20%;transform:rotate(-1deg)}
+  88% {left:68%;top:28%;transform:rotate(1deg)}
+  100%{left:80%;top:22%;transform:rotate(-1deg)}
+}
+/* farm heli reuses same animations */
+.fh-float{animation:hFloat 2.8s ease-in-out infinite .4s}
+
+/* farm scene content */
+.fs-content{
+  position:relative;z-index:25;
+  padding:clamp(56px,8vh,100px) clamp(20px,5vw,72px) clamp(180px,25vh,280px);
+  max-width:min(700px,90vw);
+}
+
+/* ══ COMPARISON ══ */
+#compare{background:linear-gradient(180deg,#f5f0e8,#ede6d5);
+  padding:clamp(60px,8vh,110px) clamp(20px,5vw,80px)}
+.comp-inner{max-width:1100px;margin:0 auto}
+.sec-header{text-align:center;margin-bottom:clamp(36px,5vh,68px)}
+.sec-title{font-family:'Playfair Display',serif;font-weight:900;
+  font-size:clamp(30px,5vw,56px);line-height:1.05;color:var(--txt)}
+.sec-title em{font-style:normal;color:var(--amber)}
+.comp-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,3vw,30px);margin-bottom:clamp(28px,4vh,52px)}
+@media(max-width:600px){.comp-grid{grid-template-columns:1fr}}
+.ccard{background:white;border-radius:12px;padding:clamp(22px,3vw,38px);
+  box-shadow:0 4px 22px rgba(0,0,0,.07);border:2px solid transparent;transition:all .3s;
+  position:relative;overflow:hidden}
+.ccard.win{border-color:var(--amber);box-shadow:0 8px 36px rgba(196,112,10,.2)}
+.ccard.win::after{content:'✓ RECOMANDAT';position:absolute;top:14px;right:-30px;
+  background:linear-gradient(135deg,var(--gold),var(--sky6));color:var(--deep);
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:9px;letter-spacing:2px;
+  padding:5px 42px;transform:rotate(45deg)}
+.ccard-ic{font-size:38px;margin-bottom:12px;display:block}
+.ccard-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(20px,2.8vw,28px);letter-spacing:1px;text-transform:uppercase;
+  color:var(--txt);margin-bottom:5px}
+.ccard-sub{font-size:12px;color:var(--muted);margin-bottom:18px}
+.cmetrics{display:flex;flex-direction:column;gap:9px}
+.crow{display:flex;justify-content:space-between;align-items:center;
+  padding:7px 0;border-bottom:1px solid #f0ebe0}
+.crow:last-child{border:none}
+.crow-name{font-size:13px;color:var(--muted)}
+.crow-val{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;
+  padding:3px 10px;border-radius:20px}
+.crow-val.g{background:rgba(58,171,46,.12);color:#2d7a1e}
+.crow-val.b{background:rgba(214,59,47,.1);color:#b02828}
+/* psych stats */
+.pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(10px,2vw,22px)}
+@media(max-width:600px){.pstats{grid-template-columns:1fr}}
+.pstat{background:var(--deep);border-radius:10px;padding:clamp(16px,2.5vw,26px);
+  text-align:center;position:relative;overflow:hidden}
+.pstat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--gold),var(--sky6))}
+.pstat-n{font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(32px,5.5vw,56px);
+  background:linear-gradient(135deg,var(--gold),#f5d060);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
+.pstat-l{font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:2px;
+  text-transform:uppercase;color:rgba(253,248,239,.55);margin-top:5px}
+.pstat-d{font-size:11px;color:rgba(253,248,239,.36);margin-top:3px;line-height:1.5}
+
+/* ══ MAP ══ */
+#mapzone{background:linear-gradient(180deg,#080f22 0%,#0d1f0a 100%);
+  padding:clamp(60px,8vh,110px) clamp(20px,5vw,80px);text-align:center;
+  position:relative;overflow:hidden}
+.mapzone-glow{position:absolute;inset:0;
+  background:radial-gradient(ellipse 70% 50% at 50% 60%,rgba(74,158,40,.07) 0%,transparent 70%)}
+.map-wrap{max-width:680px;margin:0 auto}
+.mleg-wrap{display:flex;justify-content:center;flex-wrap:wrap;gap:clamp(14px,3vw,30px);margin-top:26px}
+.mleg{display:flex;align-items:center;gap:8px;font-family:'Barlow Condensed',sans-serif;
+  font-size:12px;letter-spacing:1px;color:rgba(253,248,239,.55)}
+.mldot{width:9px;height:9px;border-radius:50%;background:var(--gold)}
+.mldot.blue{background:#1e7fca}
+
+/* ══ PROCESS ══ */
+#process{background:linear-gradient(180deg,#f5f0e8,#ede6d5);
+  padding:clamp(60px,8vh,110px) clamp(20px,5vw,80px)}
+.proc-inner{max-width:1180px;margin:0 auto}
+.pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#d5cfc4;margin-top:clamp(36px,5vh,60px)}
+@media(max-width:900px){.pgrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:460px){.pgrid{grid-template-columns:1fr}}
+.pstep{background:white;padding:clamp(22px,3.5vw,40px) clamp(16px,2.5vw,30px);
+  position:relative;transition:background .3s,transform .3s;cursor:default}
+.pstep:hover{background:#fffdf8;transform:translateY(-3px);z-index:2;box-shadow:0 12px 36px rgba(0,0,0,.1)}
+.pn{font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(48px,7vw,76px);color:#e8e2d8;line-height:.9;margin-bottom:14px;transition:color .3s}
+.pstep:hover .pn{color:var(--amber)}
+.pic{font-size:26px;margin-bottom:10px;display:block}
+.ptitle{font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(17px,2vw,23px);letter-spacing:.5px;text-transform:uppercase;
+  color:var(--txt);margin-bottom:9px}
+.pbody{font-size:13px;line-height:1.7;color:var(--muted)}
+
+/* ══ TESTIMONIALS ══ */
+#testi{background:linear-gradient(135deg,#080f22 0%,#0d1f0a 100%);
+  padding:clamp(60px,8vh,110px) clamp(20px,5vw,80px);position:relative;overflow:hidden}
+.testi-wm{position:absolute;right:-60px;top:50%;transform:translateY(-50%);
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:clamp(150px,22vw,320px);
+  color:rgba(232,160,32,.04);line-height:1;pointer-events:none;user-select:none}
+.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(12px,2vw,22px);margin-top:clamp(32px,5vh,56px)}
+@media(max-width:900px){.tgrid{grid-template-columns:1fr}}
+.tcard{background:rgba(255,255,255,.04);border:1px solid rgba(232,160,32,.15);
+  border-radius:10px;padding:clamp(20px,2.5vw,34px);transition:all .3s;position:relative}
+.tcard:hover{border-color:rgba(232,160,32,.5);transform:translateY(-4px);background:rgba(255,255,255,.07)}
+.tcard::before{content:'"';position:absolute;top:12px;left:16px;
+  font-family:'Playfair Display',serif;font-size:72px;
+  color:var(--gold);opacity:.16;line-height:.7}
+.troi{display:inline-block;margin-bottom:12px;
+  background:rgba(58,171,46,.14);border:1px solid rgba(58,171,46,.35);
+  color:#7ee870;font-family:'Barlow Condensed',sans-serif;font-weight:700;
+  font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;border-radius:20px}
+.tstars{color:var(--gold);font-size:13px;letter-spacing:2px;margin-bottom:12px}
+.ttext{font-size:clamp(12px,1.4vw,14px);line-height:1.8;color:rgba(253,248,239,.78);
+  font-style:italic;margin-bottom:22px}
+.tauthor{display:flex;align-items:center;gap:11px}
+.tav{width:42px;height:42px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),var(--sky6));
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:15px;
+  color:var(--deep);flex-shrink:0}
+.tname{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;
+  letter-spacing:.5px;color:var(--cream)}
+.trole{font-size:11px;color:rgba(253,248,239,.45);margin-top:2px}
+
+/* ══ CTA ══ */
+#cta{position:relative;overflow:hidden;
+  padding:clamp(80px,12vh,140px) clamp(20px,5vw,80px);text-align:center;
+  background:linear-gradient(180deg,#0d1f0a 0%,#1a3a0d 50%,#2d6b1a 100%)}
+/* animated field bg */
+.cta-fieldrows{position:absolute;bottom:0;left:0;right:0;top:35%;
+  background:repeating-linear-gradient(90deg,
+    transparent 0,transparent 14px,rgba(74,158,40,.2) 14px,rgba(74,158,40,.2) 18px,
+    transparent 18px,transparent 28px,rgba(200,144,42,.15) 28px,rgba(200,144,42,.15) 31px);
+  animation:cropScroll 10s linear infinite}
+.cta-sky{position:absolute;top:0;left:0;right:0;bottom:65%;
+  background:linear-gradient(180deg,#040d1e,#0c2d6b 60%,transparent)}
+.cta-c{position:relative;z-index:2}
+.scarce{display:inline-flex;align-items:center;gap:8px;
+  background:rgba(214,59,47,.12);border:1px solid rgba(214,59,47,.4);
+  padding:7px 18px;border-radius:20px;
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;
+  letter-spacing:2px;text-transform:uppercase;color:#ff9090;margin-bottom:24px}
+.cd-wrap{display:flex;justify-content:center;gap:clamp(6px,1.5vw,18px);margin-bottom:28px}
+.cdu{text-align:center}
+.cdn{display:block;font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(38px,6.5vw,76px);line-height:1;
+  background:linear-gradient(135deg,var(--gold),var(--sky6));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  min-width:clamp(55px,7vw,95px)}
+.cdl{font-family:'Barlow Condensed',sans-serif;font-size:9px;letter-spacing:3px;
+  text-transform:uppercase;color:rgba(253,248,239,.45);margin-top:3px}
+.cdsep{font-family:'Barlow Condensed',sans-serif;font-weight:900;
+  font-size:clamp(30px,5.5vw,62px);color:rgba(232,160,32,.45);align-self:flex-start;margin-top:4px}
+.cta-h2{font-family:'Playfair Display',serif;font-weight:900;
+  font-size:clamp(42px,9vw,108px);line-height:.92;color:var(--cream);margin-bottom:20px}
+.cta-h2 em{font-style:italic;color:var(--gold)}
+.cta-sub{font-size:clamp(14px,1.9vw,17px);color:rgba(253,248,239,.7);
+  max-width:500px;margin:0 auto 40px;font-weight:300;line-height:1.75}
+.cta-btns{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.social-proof{display:flex;justify-content:center;align-items:center;gap:12px;
+  margin-top:26px;font-size:13px;color:rgba(253,248,239,.45)}
+.sp-faces{display:flex}
+.spface{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.15);
+  background:linear-gradient(135deg,var(--gold),var(--amber));
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:10px;
+  color:var(--deep);margin-left:-9px}
+.spface:first-child{margin-left:0}
+
+/* ══ FOOTER ══ */
+footer{background:#040b18;border-top:1px solid rgba(232,160,32,.12);
+  padding:clamp(38px,6vh,64px) clamp(20px,5vw,64px);
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:clamp(18px,4vw,52px)}
+@media(max-width:900px){footer{grid-template-columns:1fr 1fr}}
+@media(max-width:460px){footer{grid-template-columns:1fr}}
+.fb-logo{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.ft-desc{font-size:13px;color:rgba(253,248,239,.45);line-height:1.7;max-width:235px;margin-bottom:18px}
+.ft-cert{font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--gold)}
+.fcol h4{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:9px;
+  letter-spacing:3px;text-transform:uppercase;color:var(--cream);margin-bottom:14px}
+.fcol ul{list-style:none}
+.fcol ul li{margin-bottom:8px}
+.fcol ul li a{font-size:13px;color:rgba(253,248,239,.45);text-decoration:none;transition:color .3s}
+.fcol ul li a:hover{color:var(--gold)}
+.ft-bottom{background:#02070f;padding:16px clamp(20px,5vw,64px);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;
+  border-top:1px solid rgba(232,160,32,.08)}
+.ft-bottom p{font-family:'Barlow Condensed',sans-serif;font-size:10px;letter-spacing:1px;color:rgba(253,248,239,.3)}
+
+/* ══ BUTTONS ══ */
+.btn-gold{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:13px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--deep);
+  background:linear-gradient(135deg,var(--gold),var(--sky6));
+  border:none;padding:15px clamp(20px,3vw,38px);border-radius:4px;
+  cursor:pointer;transition:box-shadow .3s,transform .2s;
+  box-shadow:0 4px 22px rgba(232,160,32,.4)}
+.btn-gold:hover{box-shadow:0 8px 38px rgba(232,160,32,.7);transform:translateY(-2px)}
+.btn-outline{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--cream);background:transparent;
+  border:2px solid rgba(253,248,239,.28);padding:15px clamp(20px,3vw,38px);
+  border-radius:4px;cursor:pointer;transition:border-color .3s,background .3s}
+.btn-outline:hover{border-color:rgba(253,248,239,.7);background:rgba(253,248,239,.07)}
+.btn-dark-outline{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--txt);background:transparent;
+  border:2px solid rgba(0,0,0,.18);padding:15px clamp(20px,3vw,38px);
+  border-radius:4px;cursor:pointer;transition:border-color .3s}
+.btn-dark-outline:hover{border-color:var(--amber)}
+</style>
+</head>
+<body>
+
+<div class="cur"   id="cur"></div>
+<div class="cring" id="cring"></div>
+<div class="pbar"  id="pbar"></div>
+
+<!-- ═══════════════════════════════════
+     MOBILE MENU
+═══════════════════════════════════ -->
+<div class="mmenu" id="mmenu">
+  <a href="#services"   onclick="cm()">Servicii</a>
+  <a href="#compare"    onclick="cm()">De Ce Noi</a>
+  <a href="#mapzone"    onclick="cm()">Harta</a>
+  <a href="#testi"      onclick="cm()">Clienți</a>
+  <a href="#cta"        onclick="cm()">Contact</a>
+</div>
+
+<!-- ═══════════════════════════════════
+     NAV
+═══════════════════════════════════ -->
+<nav>
+  <div class="nlogo">
+    <div class="nlogo-ic">🚁</div>
+    <div>
+      <span class="nlogo-txt">Est Copter</span>
+      <span class="nlogo-sub">Aviație Agricolă</span>
+    </div>
+  </div>
+  <ul class="nlinks">
+    <li><a href="#services">Servicii</a></li>
+    <li><a href="#compare">De Ce Noi</a></li>
+    <li><a href="#mapzone">Harta</a></li>
+    <li><a href="#testi">Clienți</a></li>
+  </ul>
+  <button class="ham" id="hambtn" onclick="tm()"><span></span><span></span><span></span></button>
+  <button class="ncta">📞 Sună Acum</button>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════
+     HERO — THE SKY SCENE
+     Helicopter lives HERE, animates in CSS
+═══════════════════════════════════════════════════ -->
+<section id="hero">
+  <!-- Sky layers -->
+  <div class="sky-layer"></div>
+  <div class="sun-disc"></div>
+  <div class="sun-rays"></div>
+  <!-- Clouds injected by JS -->
+  <div id="cloud-layer" style="position:absolute;inset:0;pointer-events:none;z-index:5"></div>
+  <!-- Agricultural floating elements -->
+  <div id="agri-layer" style="position:absolute;inset:0;pointer-events:none;z-index:6;overflow:hidden"></div>
+  <div class="sky-haze"></div>
+  <div class="ground"></div>
+  <div class="crop-rows"></div>
+
+  <!-- ═══════════════════════════════
+       HERO HELICOPTER — CSS animated, lives in scene
+  ═══════════════════════════════ -->
+  <div id="hero-heli">
+    <svg width="200" height="120" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+    <defs>
+      <linearGradient id="fg1" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#c8d8e8"/><stop offset="40%" stop-color="#8aa8c0"/><stop offset="100%" stop-color="#4a6878"/>
+      </linearGradient>
+      <linearGradient id="fg2" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#1a3a5c" stop-opacity=".92"/><stop offset="100%" stop-color="#0a1e34" stop-opacity=".97"/>
+      </linearGradient>
+      <linearGradient id="fg3" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#6a8898"/><stop offset="100%" stop-color="#3a5868"/>
+      </linearGradient>
+      <linearGradient id="frd" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#111" stop-opacity=".0"/>
+        <stop offset="25%" stop-color="#1a1a2a" stop-opacity=".6"/>
+        <stop offset="50%" stop-color="#0e0e18" stop-opacity=".8"/>
+        <stop offset="75%" stop-color="#1a1a2a" stop-opacity=".6"/>
+        <stop offset="100%" stop-color="#111" stop-opacity=".0"/>
+      </linearGradient>
+      <filter id="fds"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="rgba(0,0,0,.5)"/></filter>
+      <filter id="fg"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+
+    <!-- spotlight cone -->
+    <polygon style="animation:spot 3s ease-in-out infinite" points="138,128 98,200 178,200" fill="rgba(255,240,180,.07)"/>
+
+    <g class="hb-float" filter="url(#fds)">
+      <!-- tail shadow -->
+      <ellipse cx="206" cy="118" rx="70" ry="8" fill="rgba(0,0,0,.1)"/>
+      <!-- tail boom -->
+      <path d="M 208 107 Q 268 105 296 110 Q 306 113 308 118 Q 306 124 296 126 Q 268 130 208 128 Z" fill="url(#fg3)" stroke="rgba(0,0,0,.12)" stroke-width=".5"/>
+      <!-- tail boom highlight -->
+      <path d="M 210 109 Q 268 107 294 112" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.2"/>
+      <!-- vertical fin -->
+      <path d="M 294 82 L 310 107 L 310 128 L 294 128 Z" fill="#4a6878" stroke="rgba(0,0,0,.15)" stroke-width=".5"/>
+      <!-- fin highlight -->
+      <path d="M 296 87 L 308 109" fill="none" stroke="rgba(255,255,255,.14)" stroke-width=".8"/>
+      <!-- h-stab -->
+      <ellipse cx="303" cy="128" rx="18" ry="6" fill="#5a7888" stroke="rgba(0,0,0,.12)" stroke-width=".5"/>
+      <!-- gold livery stripe on tail -->
+      <path d="M 214 116 Q 272 114 300 118" fill="none" stroke="rgba(232,160,32,.75)" stroke-width="2.2"/>
+
+      <!-- fuselage -->
+      <path d="M 62 98 Q 54 114 62 130 Q 118 148 208 128 Q 220 114 208 100 Q 168 90 120 90 Q 86 88 62 98 Z"
+        fill="url(#fg1)" stroke="rgba(0,0,0,.18)" stroke-width=".7"/>
+      <!-- fuselage top shine -->
+      <path d="M 66 104 Q 138 96 206 104" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="1.8"/>
+      <!-- belly shadow -->
+      <path d="M 68 130 Q 138 140 208 128 Q 208 136 138 138 Q 76 135 68 130 Z" fill="rgba(0,0,0,.15)"/>
+      <!-- side windows -->
+      <rect x="138" y="104" width="14" height="10" rx="2.5" fill="url(#fg2)" stroke="rgba(150,200,240,.28)" stroke-width=".7"/>
+      <rect x="158" y="104" width="14" height="10" rx="2.5" fill="url(#fg2)" stroke="rgba(150,200,240,.28)" stroke-width=".7"/>
+      <rect x="178" y="104" width="14" height="10" rx="2.5" fill="url(#fg2)" stroke="rgba(150,200,240,.28)" stroke-width=".7"/>
+      <!-- window glare -->
+      <rect x="140" y="106" width="5" height="3.5" rx="1" fill="rgba(200,230,255,.22)"/>
+      <rect x="160" y="106" width="5" height="3.5" rx="1" fill="rgba(200,230,255,.22)"/>
+
+      <!-- cockpit nose -->
+      <path d="M 62 98 Q 46 106 38 118 Q 36 130 52 138 Q 62 140 62 140 L 62 98 Z" fill="url(#fg1)" stroke="rgba(0,0,0,.18)" stroke-width=".7"/>
+      <!-- cockpit glass -->
+      <path d="M 56 96 Q 32 100 20 116 Q 18 130 40 138 Q 58 142 76 136 Q 90 130 92 116 Q 92 100 74 96 Z"
+        fill="url(#fg2)" stroke="rgba(150,200,240,.38)" stroke-width=".9"/>
+      <!-- cockpit frame lines -->
+      <path d="M 56 96 L 58 138" stroke="rgba(140,188,220,.22)" stroke-width=".8"/>
+      <path d="M 76 96 L 78 138" stroke="rgba(140,188,220,.14)" stroke-width=".8"/>
+      <!-- cockpit glare -->
+      <path d="M 28 106 Q 40 100 54 104 Q 50 112 34 116 Z" fill="rgba(255,255,255,.1)"/>
+      <path d="M 60 100 Q 70 98 82 102 Q 78 108 64 110 Z" fill="rgba(255,255,255,.07)"/>
+      <!-- cockpit frame trim -->
+      <path d="M 56 96 Q 76 94 92 103" fill="none" stroke="rgba(200,220,238,.3)" stroke-width="1.2"/>
+
+      <!-- rotor mast -->
+      <rect x="136" y="68" width="6" height="22" rx="2" fill="#3a4a58" stroke="rgba(0,0,0,.25)" stroke-width=".4"/>
+      <rect x="133" y="70" width="12" height="4" rx="2" fill="#5a6a78"/>
+      <rect x="133" y="84" width="12" height="4" rx="2" fill="#5a6a78"/>
+
+      <!-- skids -->
+      <line x1="80"  y1="142" x2="78"  y2="165" stroke="#3a5060" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="132" y1="136" x2="133" y2="164" stroke="#3a5060" stroke-width="2.5" stroke-linecap="round"/>
+      <rect x="66"   y="163" width="78" height="5" rx="2.5" fill="#3a5060"/>
+      <line x1="152" y1="136" x2="153" y2="164" stroke="#3a5060" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="196" y1="136" x2="197" y2="164" stroke="#3a5060" stroke-width="2.5" stroke-linecap="round"/>
+      <rect x="141"  y="163" width="65" height="5" rx="2.5" fill="#3a5060"/>
+
+      <!-- brand livery gold stripe -->
+      <path d="M 62 112 Q 136 107 208 112" fill="none" stroke="rgba(232,160,32,.85)" stroke-width="2.6"/>
+      <!-- EC circle logo on nose -->
+      <circle cx="46" cy="118" r="8" fill="rgba(232,160,32,.22)" stroke="rgba(232,160,32,.55)" stroke-width=".8"/>
+      <text x="46" y="122" font-family="Arial" font-size="8" fill="rgba(232,160,32,.95)" text-anchor="middle" font-weight="bold">EC</text>
+      <!-- EST COPTER text -->
+      <text x="104" y="126" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="9.5" fill="rgba(10,30,64,.65)" letter-spacing="2.2">EST COPTER</text>
+
+      <!-- nav lights -->
+      <circle class="hnav-r" cx="22" cy="118" r="4" fill="#cc2222" filter="url(#fg)"/>
+      <circle class="hnav-g" cx="210" cy="118" r="4" fill="#22cc22" filter="url(#fg)"/>
+      <circle cx="308" cy="119" r="3" fill="#eeeeff" opacity=".7">
+        <animate attributeName="opacity" values=".7;.1;.7" dur="1.9s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- spray bar -->
+      <rect x="80"  y="168" width="136" height="4" rx="2" fill="#4a6070"/>
+      <!-- nozzles -->
+      <rect x="86"  y="172" width="2.5" height="7" rx="1.2" fill="#2a4050"/>
+      <rect x="100" y="172" width="2.5" height="7" rx="1.2" fill="#2a4050"/>
+      <rect x="114" y="172" width="2.5" height="7" rx="1.2" fill="#2a4050"/>
+      <rect x="128" y="172" width="2.5" height="7" rx="1.2" fill="#2a4050"/>
+      <rect x="142" y="172" width="2.5" height="7" rx="1.2" fill="#2a4050"/>
+      <rect x="156" y="172" width="2.5" height="7" rx="1.2" fill="#2a4050"/>
+      <rect x="170" y="172" width="2.5" height="7" rx="1.2" fill="#2a4050"/>
+      <rect x="207" y="172" width="2.5" height="7" rx="1.2" fill="#2a4050"/>
+
+      <!-- exhaust -->
+      <ellipse class="hexh" cx="214" cy="108" rx="10" ry="5" fill="rgba(170,170,150,.22)"/>
+    </g><!-- end hb-float -->
+
+    <!-- beacon -->
+    <circle class="hbeac" cx="139" cy="68" r="4.5" fill="#ffee22" filter="url(#fg)"/>
+    <circle cx="139" cy="68" r="9" fill="none" stroke="rgba(255,238,34,.1)">
+      <animate attributeName="r" values="6;15;6" dur=".7s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values=".15;0;.15" dur=".7s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- MAIN ROTOR disc -->
+    <g class="hr-main" style="transform-origin:139px 68px">
+      <ellipse cx="139" cy="68" rx="128" ry="9" fill="url(#frd)" opacity=".55"/>
+      <ellipse cx="139" cy="68" rx="128" ry="6" fill="url(#frd)" opacity=".35" transform="rotate(45,139,68)"/>
+      <path d="M 11 66 Q 75 62 139 68 Q 75 74 11 70 Z" fill="#1a1a28" opacity=".78"/>
+      <path d="M 267 66 Q 203 62 139 68 Q 203 74 267 70 Z" fill="#1a1a28" opacity=".78"/>
+      <path d="M 139 -60 Q 136 4 139 68 Q 142 4 139 -60 Z" fill="#1a1a28" opacity=".72" transform="rotate(55,139,68)"/>
+      <path d="M 139 -60 Q 136 4 139 68 Q 142 4 139 -60 Z" fill="#1a1a28" opacity=".72" transform="rotate(-55,139,68)"/>
+      <circle cx="139" cy="68" r="9"   fill="#3a4a58" stroke="#2a3a48" stroke-width="1.4"/>
+      <circle cx="139" cy="68" r="4.5" fill="#5a6a78"/>
+      <circle cx="139" cy="68" r="1.8" fill="#9aaab8"/>
+    </g>
+
+    <!-- TAIL ROTOR -->
+    <g class="hr-tail" style="transform-origin:310px 96px">
+      <ellipse cx="310" cy="96" rx="4" ry="24" fill="rgba(30,40,52,.4)" opacity=".6"/>
+      <path d="M 307 72 Q 308 84 310 96 Q 312 84 313 72 Z" fill="#1a1a28" opacity=".75"/>
+      <path d="M 307 120 Q 308 108 310 96 Q 312 108 313 120 Z" fill="#1a1a28" opacity=".75"/>
+      <path d="M 286 93 Q 298 94 310 96 Q 298 98 286 99 Z" fill="#1a1a28" opacity=".65"/>
+      <path d="M 334 93 Q 322 94 310 96 Q 322 98 334 99 Z" fill="#1a1a28" opacity=".65"/>
+      <circle cx="310" cy="96" r="4.5" fill="#3a4a58" stroke="#2a3a48" stroke-width=".8"/>
+      <circle cx="310" cy="96" r="2.2" fill="#5a6a78"/>
+    </g>
+
+    <!-- spray drops -->
+    <g class="hsp"><path d="M87 179 Q85 198 84 212" stroke="rgba(120,200,255,.75)" stroke-width="1.4" fill="none"/><circle cx="83" cy="213" r="2" fill="rgba(100,180,255,.55)"/></g>
+    <g class="hsp"><path d="M101 179 Q100 200 99 214" stroke="rgba(120,200,255,.75)" stroke-width="1.4" fill="none"/><circle cx="98" cy="215" r="2" fill="rgba(100,180,255,.55)"/></g>
+    <g class="hsp"><path d="M115 179 Q116 197 117 211" stroke="rgba(120,200,255,.75)" stroke-width="1.4" fill="none"/><circle cx="117" cy="212" r="2" fill="rgba(100,180,255,.55)"/></g>
+    <g class="hsp"><path d="M129 179 Q127 199 126 213" stroke="rgba(120,200,255,.75)" stroke-width="1.4" fill="none"/><circle cx="125" cy="214" r="2" fill="rgba(100,180,255,.55)"/></g>
+    <g class="hsp"><path d="M143 179 Q144 196 145 210" stroke="rgba(120,200,255,.75)" stroke-width="1.4" fill="none"/><circle cx="145" cy="211" r="2" fill="rgba(100,180,255,.55)"/></g>
+    <g class="hsp"><path d="M157 179 Q155 198 154 212" stroke="rgba(120,200,255,.75)" stroke-width="1.4" fill="none"/><circle cx="153" cy="213" r="2" fill="rgba(100,180,255,.55)"/></g>
+    </svg>
+  </div><!-- end hero-heli -->
+
+  <!-- Hero text -->
+  <div class="hero-content">
+    <div class="badge"><span class="bdot"></span>Lider Național Aviație Utilitară · Est. 2009</div>
+    <h1 class="hero-h1">Recolta Ta<br><em>Protejată</em><br>din Aer.</h1>
+    <p class="hero-sub">Tratamente aeriene de precizie pentru culturi sănătoase. Acolo unde tractorul se oprește — noi zburăm înainte.</p>
+    <div class="urge-box rv">
+      <span style="font-size:20px;flex-shrink:0">⚠️</span>
+      <p>Sezonul se închide curând. Fermierii care întârzie pierd în medie <strong>18–25% din recoltă</strong> din cauza dăunătorilor netratați la timp.</p>
+    </div>
+    <div class="hero-btns">
+      <button class="btn-gold">🌾 Solicită Intervenție Rapidă</button>
+      <button class="btn-outline">▶ Cum Funcționează</button>
+    </div>
+  </div>
+
+  <div class="stats-ribbon">
+    <div class="sc"><div class="sc-n">50.000+</div><div class="sc-l">Hectare Tratate</div></div>
+    <div class="sc"><div class="sc-n">98%</div><div class="sc-l">Clienți Mulțumiți</div></div>
+    <div class="sc"><div class="sc-n">10×</div><div class="sc-l">Mai Rapid ca Tractorul</div></div>
+    <div class="sc"><div class="sc-n">15 ani</div><div class="sc-l">Experiență Dovedită</div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════
+     TRUST BAR
+═══════════════════════════════ -->
+<div id="trust">
+  <div class="ti"><span>✓</span>Certificat AACR</div>
+  <div class="ti"><span>✓</span>Autorizat ANSVSA</div>
+  <div class="ti"><span>✓</span>Standard EASA</div>
+  <div class="ti"><span>🏆</span>Premiat AIPA 2023</div>
+  <div class="ti"><span>🌿</span>Eco-Certificat</div>
+</div>
+
+<!-- ═══════════════════════════════
+     LOSS AVERSION
+═══════════════════════════════ -->
+<section id="loss">
+  <div class="loss-watermark">PIERDERE</div>
+  <div class="loss-inner">
+    <div>
+      <div class="eyebrow red">Realitatea Câmpului</div>
+      <h2 class="big-h rv">Fiecare Zi<br>de Întârziere<br>Costă.</h2>
+      <p class="body-copy rv">Studiile MADR confirmă: fermierii care tratează cu întârziere de 3–5 zile față de momentul optim pierd ireversibil parte din recoltă. Nu mai poți recupera ce ai pierdut.</p>
+      <div class="meters rv" id="lossMeters">
+        <div class="mrow"><span class="mlabel">Pierdere recoltă</span><div class="mtrack"><div class="mfill red" id="lm1"></div></div><span class="mval" style="color:#ff6b5b">până 25%</span></div>
+        <div class="mrow"><span class="mlabel">Eficiență Est Copter</span><div class="mtrack"><div class="mfill gold" id="lm2"></div></div><span class="mval" style="color:var(--gold)">97%</span></div>
+        <div class="mrow"><span class="mlabel">Acoperire uniformă</span><div class="mtrack"><div class="mfill gold" id="lm3"></div></div><span class="mval" style="color:var(--gold)">100%</span></div>
+        <div class="mrow"><span class="mlabel">Tasare tractor</span><div class="mtrack"><div class="mfill red" id="lm4"></div></div><span class="mval" style="color:#ff6b5b">−12%</span></div>
+      </div>
+      <button class="btn-gold rv">Programează — Fără Costuri Ascunse</button>
+    </div>
+    <div class="rvs">
+      <div class="loss-card">
+        <div class="lc-big">25%</div>
+        <div class="lc-title">Pierdere Medie din Recoltă</div>
+        <div class="lc-sub">Tratamente tardive / neuniforme, estimat la cultura de porumb.</div>
+        <div class="divg"></div>
+        <div class="facts">
+          <div class="fact">📉 La 100 ha porumb: pierdere estimată <em>€8.000–€15.000</em> pe sezon cu tratament terestru tardiv.</div>
+          <div class="fact">⏱️ Fereastra optimă: <em>48–72 ore</em>. Після, eficiența scade dramatic.</div>
+          <div class="fact">🚁 Est Copter: <em>200–400 ha/zi</em>. Tractor: 20–40 ha/zi.</div>
+          <div class="fact">💰 ROI pozitiv raportat de <em>94% din clienți</em> în primul sezon.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     FARM SCENE — second helicopter lives here
+═══════════════════════════════════════════════════ -->
+<section id="services">
+  <div id="farm-scene">
+    <div class="fs-sky"></div>
+    <div id="farm-cloud-layer" style="position:absolute;inset:0;pointer-events:none;z-index:4"></div>
+    <div class="fs-haze"></div>
+    <div class="fs-trees"></div>
+    <div class="fs-silo"></div>
+    <!-- birds -->
+    <div class="bird" style="top:18%;left:25%;--bw:180px;--bh:-30px;animation-duration:12s;animation-delay:-3s">🐦</div>
+    <div class="bird" style="top:15%;left:40%;--bw:220px;--bh:-20px;animation-duration:16s;animation-delay:-7s">🐦</div>
+    <div class="bird" style="top:22%;left:15%;--bw:160px;--bh:-40px;animation-duration:14s;animation-delay:-5s">🦅</div>
+    <div class="fs-ground"></div>
+    <div class="fs-wheat-rows"></div>
+
+    <!-- SVG crop field detail -->
+    <svg style="position:absolute;bottom:0;left:0;right:0;width:100%;z-index:5" viewBox="0 0 800 300" preserveAspectRatio="xMidYMax meet" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="cg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#50c820" stop-opacity=".9"/><stop offset="100%" stop-color="#1a6808"/></linearGradient>
+        <linearGradient id="wg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e8c060" stop-opacity=".9"/><stop offset="100%" stop-color="#8a6020"/></linearGradient>
+      </defs>
+      <!-- ground base -->
+      <rect x="0" y="200" width="800" height="100" fill="#1a3a0d"/>
+      <!-- CORN stalks -->
+      <g fill="url(#cg1)">
+        <rect x="8"  y="100" width="10" height="135" rx="2.5"/>
+        <rect x="38" y="85"  width="10" height="150" rx="2.5"/>
+        <rect x="68" y="95"  width="10" height="140" rx="2.5"/>
+        <rect x="98" y="80"  width="10" height="155" rx="2.5"/>
+        <rect x="128" y="90" width="10" height="145" rx="2.5"/>
+        <rect x="158" y="82" width="10" height="153" rx="2.5"/>
+        <rect x="188" y="92" width="10" height="143" rx="2.5"/>
+        <rect x="218" y="78" width="10" height="157" rx="2.5"/>
+        <rect x="248" y="96" width="10" height="139" rx="2.5"/>
+        <rect x="278" y="85" width="10" height="150" rx="2.5"/>
+        <rect x="308" y="91" width="10" height="144" rx="2.5"/>
+        <rect x="338" y="79" width="10" height="156" rx="2.5"/>
+        <rect x="368" y="94" width="10" height="141" rx="2.5"/>
+        <rect x="398" y="83" width="10" height="152" rx="2.5"/>
+        <rect x="428" y="88" width="10" height="147" rx="2.5"/>
+        <rect x="458" y="76" width="10" height="159" rx="2.5"/>
+        <rect x="488" y="93" width="10" height="142" rx="2.5"/>
+        <rect x="518" y="86" width="10" height="149" rx="2.5"/>
+        <rect x="548" y="81" width="10" height="154" rx="2.5"/>
+        <rect x="578" y="95" width="10" height="140" rx="2.5"/>
+        <rect x="608" y="84" width="10" height="151" rx="2.5"/>
+        <rect x="638" y="90" width="10" height="145" rx="2.5"/>
+        <rect x="668" y="77" width="10" height="158" rx="2.5"/>
+        <rect x="698" y="92" width="10" height="143" rx="2.5"/>
+        <rect x="728" y="87" width="10" height="148" rx="2.5"/>
+        <rect x="758" y="80" width="10" height="155" rx="2.5"/>
+        <rect x="782" y="93" width="10" height="142" rx="2.5"/>
+      </g>
+      <!-- corn leaves -->
+      <g stroke="#3aaa20" stroke-width="3" fill="none" opacity=".7">
+        <path d="M13 148 Q38 128 65 140"/><path d="M13 168 Q-8 150 13 136"/>
+        <path d="M103 130 Q130 110 158 122"/><path d="M103 150 Q76 132 98 118"/>
+        <path d="M223 126 Q248 106 276 118"/><path d="M343 122 Q368 102 396 114"/>
+        <path d="M463 124 Q488 104 516 116"/><path d="M583 127 Q608 107 636 119"/>
+        <path d="M703 122 Q728 102 756 114"/>
+      </g>
+      <!-- corn cobs -->
+      <ellipse cx="13"  cy="166" rx="6.5" ry="15" fill="#c8a200" opacity=".85"/>
+      <ellipse cx="103" cy="158" rx="6.5" ry="15" fill="#c8a200" opacity=".85"/>
+      <ellipse cx="223" cy="154" rx="6.5" ry="15" fill="#c8a200" opacity=".85"/>
+      <ellipse cx="343" cy="152" rx="6.5" ry="15" fill="#c8a200" opacity=".85"/>
+      <ellipse cx="463" cy="155" rx="6.5" ry="15" fill="#c8a200" opacity=".85"/>
+      <ellipse cx="583" cy="158" rx="6.5" ry="15" fill="#c8a200" opacity=".85"/>
+      <ellipse cx="703" cy="154" rx="6.5" ry="15" fill="#c8a200" opacity=".85"/>
+
+      <!-- WHEAT stalks in foreground -->
+      <g fill="url(#wg1)">
+        <rect x="23"  y="150" width="5" height="80" rx="1.5"/>
+        <rect x="53"  y="145" width="5" height="85" rx="1.5"/>
+        <rect x="83"  y="152" width="5" height="78" rx="1.5"/>
+        <rect x="113" y="143" width="5" height="87" rx="1.5"/>
+        <rect x="143" y="149" width="5" height="81" rx="1.5"/>
+        <rect x="173" y="147" width="5" height="83" rx="1.5"/>
+        <rect x="203" y="151" width="5" height="79" rx="1.5"/>
+        <rect x="233" y="144" width="5" height="86" rx="1.5"/>
+        <rect x="263" y="150" width="5" height="80" rx="1.5"/>
+        <rect x="293" y="146" width="5" height="84" rx="1.5"/>
+        <rect x="323" y="148" width="5" height="82" rx="1.5"/>
+        <rect x="353" y="143" width="5" height="87" rx="1.5"/>
+        <rect x="383" y="151" width="5" height="79" rx="1.5"/>
+        <rect x="413" y="145" width="5" height="85" rx="1.5"/>
+        <rect x="443" y="149" width="5" height="81" rx="1.5"/>
+        <rect x="473" y="147" width="5" height="83" rx="1.5"/>
+        <rect x="503" y="152" width="5" height="78" rx="1.5"/>
+        <rect x="533" y="144" width="5" height="86" rx="1.5"/>
+        <rect x="563" y="150" width="5" height="80" rx="1.5"/>
+        <rect x="593" y="146" width="5" height="84" rx="1.5"/>
+        <rect x="623" y="148" width="5" height="82" rx="1.5"/>
+        <rect x="653" y="143" width="5" height="87" rx="1.5"/>
+        <rect x="683" y="151" width="5" height="79" rx="1.5"/>
+        <rect x="713" y="145" width="5" height="85" rx="1.5"/>
+        <rect x="743" y="149" width="5" height="81" rx="1.5"/>
+        <rect x="773" y="147" width="5" height="83" rx="1.5"/>
+      </g>
+      <!-- wheat heads -->
+      <g fill="#f5d878">
+        <ellipse cx="25"  cy="152" rx="3.5" ry="8"/><ellipse cx="55"  cy="147" rx="3.5" ry="8"/>
+        <ellipse cx="85"  cy="154" rx="3.5" ry="8"/><ellipse cx="115" cy="145" rx="3.5" ry="8"/>
+        <ellipse cx="145" cy="151" rx="3.5" ry="8"/><ellipse cx="175" cy="149" rx="3.5" ry="8"/>
+        <ellipse cx="205" cy="153" rx="3.5" ry="8"/><ellipse cx="235" cy="146" rx="3.5" ry="8"/>
+        <ellipse cx="265" cy="152" rx="3.5" ry="8"/><ellipse cx="295" cy="148" rx="3.5" ry="8"/>
+        <ellipse cx="325" cy="150" rx="3.5" ry="8"/><ellipse cx="355" cy="145" rx="3.5" ry="8"/>
+        <ellipse cx="385" cy="153" rx="3.5" ry="8"/><ellipse cx="415" cy="147" rx="3.5" ry="8"/>
+        <ellipse cx="445" cy="151" rx="3.5" ry="8"/><ellipse cx="475" cy="149" rx="3.5" ry="8"/>
+        <ellipse cx="505" cy="154" rx="3.5" ry="8"/><ellipse cx="535" cy="146" rx="3.5" ry="8"/>
+        <ellipse cx="565" cy="152" rx="3.5" ry="8"/><ellipse cx="595" cy="148" rx="3.5" ry="8"/>
+        <ellipse cx="625" cy="150" rx="3.5" ry="8"/><ellipse cx="655" cy="145" rx="3.5" ry="8"/>
+        <ellipse cx="685" cy="153" rx="3.5" ry="8"/><ellipse cx="715" cy="147" rx="3.5" ry="8"/>
+        <ellipse cx="745" cy="151" rx="3.5" ry="8"/><ellipse cx="775" cy="149" rx="3.5" ry="8"/>
+      </g>
+      <!-- spray mist -->
+      <ellipse cx="400" cy="88" rx="380" ry="22" fill="rgba(120,200,255,.06)"/>
+      <ellipse cx="400" cy="100" rx="320" ry="16" fill="rgba(120,200,255,.04)"/>
+    </svg>
+
+    <!-- FARM HELICOPTER — second creative one, smaller, over the field -->
+    <div id="farm-heli">
+      <!-- Simpler, stylized crop-duster style -->
+      <svg width="160" height="90" viewBox="0 0 260 160" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+      <defs>
+        <linearGradient id="fg4" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#d4e8c0"/><stop offset="100%" stop-color="#6a9858"/>
+        </linearGradient>
+        <filter id="fds2"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="rgba(0,0,0,.45)"/></filter>
+      </defs>
+      <g class="fh-float" filter="url(#fds2)">
+        <!-- body — green agricultural livery -->
+        <path d="M 50 80 Q 44 90 50 102 Q 90 115 165 100 Q 174 88 165 76 Q 128 68 90 68 Q 66 66 50 80 Z" fill="url(#fg4)" stroke="rgba(0,0,0,.2)" stroke-width=".7"/>
+        <!-- top shine -->
+        <path d="M 53 82 Q 112 74 163 82" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>
+        <!-- cockpit -->
+        <path d="M 44 78 Q 30 84 24 92 Q 22 102 36 108 Q 50 112 58 108 Q 68 103 68 90 Q 68 78 56 77 Z" fill="rgba(26,58,92,.88)" stroke="rgba(120,200,140,.4)" stroke-width=".8"/>
+        <path d="M 30 84 Q 40 78 52 81 Q 48 88 34 92 Z" fill="rgba(255,255,255,.1)"/>
+        <!-- tail boom -->
+        <path d="M 162 87 Q 210 85 228 90 Q 236 93 236 97 Q 236 101 228 104 Q 210 108 162 105 Z" fill="#5a8858" stroke="rgba(0,0,0,.1)" stroke-width=".5"/>
+        <!-- fin -->
+        <path d="M 224 68 L 236 88 L 236 105 L 224 105 Z" fill="#5a8858"/>
+        <!-- brand stripe — orange/gold -->
+        <path d="M 50 88 Q 110 84 163 88" fill="none" stroke="rgba(232,160,32,.85)" stroke-width="2.4"/>
+        <!-- text -->
+        <text x="84" y="98" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="8" fill="rgba(10,30,20,.6)" letter-spacing="1.8">EST COPTER</text>
+        <!-- skids -->
+        <rect x="56"  y="120" width="62" height="4" rx="2" fill="#4a6848"/>
+        <rect x="116" y="120" width="52" height="4" rx="2" fill="#4a6848"/>
+        <line x1="62"  y1="110" x2="60"  y2="122" stroke="#4a6848" stroke-width="2" stroke-linecap="round"/>
+        <line x1="104" y1="106" x2="106" y2="121" stroke="#4a6848" stroke-width="2" stroke-linecap="round"/>
+        <line x1="122" y1="106" x2="124" y2="121" stroke="#4a6848" stroke-width="2" stroke-linecap="round"/>
+        <line x1="158" y1="108" x2="160" y2="121" stroke="#4a6848" stroke-width="2" stroke-linecap="round"/>
+        <!-- spray bar -->
+        <rect x="60" y="124" width="108" height="3" rx="1.5" fill="#3a5840"/>
+        <rect x="66"  y="127" width="2" height="6" rx="1" fill="#2a4830"/>
+        <rect x="80"  y="127" width="2" height="6" rx="1" fill="#2a4830"/>
+        <rect x="94"  y="127" width="2" height="6" rx="1" fill="#2a4830"/>
+        <rect x="108" y="127" width="2" height="6" rx="1" fill="#2a4830"/>
+        <rect x="122" y="127" width="2" height="6" rx="1" fill="#2a4830"/>
+        <rect x="136" y="127" width="2" height="6" rx="1" fill="#2a4830"/>
+        <rect x="160" y="127" width="2" height="6" rx="1" fill="#2a4830"/>
+        <!-- mast -->
+        <rect x="107" y="54" width="5" height="18" rx="1.5" fill="#3a5848"/>
+        <!-- nav lights -->
+        <circle cx="24" cy="93" r="3.5" fill="#cc2222"><animate attributeName="opacity" values="1;.1;1" dur="1.1s" repeatCount="indefinite"/></circle>
+        <circle cx="166" cy="93" r="3.5" fill="#22cc22"><animate attributeName="opacity" values="1;.1;1" dur="1.1s" begin=".55s" repeatCount="indefinite"/></circle>
+      </g>
+      <!-- beacon -->
+      <circle cx="109" cy="54" r="4" fill="#ffee22"><animate attributeName="opacity" values="1;.05;1" dur=".7s" step-end repeatCount="indefinite"/></circle>
+      <!-- rotor -->
+      <g class="hr-main" style="transform-origin:109px 54px">
+        <ellipse cx="109" cy="54" rx="95" ry="7" fill="rgba(20,20,30,.5)" opacity=".55"/>
+        <path d="M 14 52 Q 62 48 109 54 Q 62 60 14 56 Z" fill="#181828" opacity=".78"/>
+        <path d="M 204 52 Q 156 48 109 54 Q 156 60 204 56 Z" fill="#181828" opacity=".78"/>
+        <path d="M 109 -41 Q 107 6 109 54 Q 111 6 109 -41 Z" fill="#181828" opacity=".7" transform="rotate(60,109,54)"/>
+        <circle cx="109" cy="54" r="7" fill="#3a4a58" stroke="#2a3a48" stroke-width="1"/>
+        <circle cx="109" cy="54" r="3.5" fill="#5a6a78"/>
+      </g>
+      <!-- tail rotor -->
+      <g class="hr-tail" style="transform-origin:237px 76px">
+        <ellipse cx="237" cy="76" rx="3" ry="18" fill="rgba(30,40,52,.4)"/>
+        <path d="M 235 58 Q 236 67 237 76 Q 238 67 239 58 Z" fill="#181828" opacity=".75"/>
+        <path d="M 235 94 Q 236 85 237 76 Q 238 85 239 94 Z" fill="#181828" opacity=".75"/>
+        <circle cx="237" cy="76" r="3.5" fill="#3a4a58"/>
+      </g>
+      <!-- farm spray drops — green tint -->
+      <g class="hsp"><path d="M67 133 Q65 150 64 162" stroke="rgba(140,220,130,.75)" stroke-width="1.3" fill="none"/><circle cx="63" cy="163" r="2" fill="rgba(120,200,110,.5)"/></g>
+      <g class="hsp"><path d="M81 133 Q80 152 79 164" stroke="rgba(140,220,130,.75)" stroke-width="1.3" fill="none"/><circle cx="78" cy="165" r="2" fill="rgba(120,200,110,.5)"/></g>
+      <g class="hsp"><path d="M95 133 Q96 150 97 162" stroke="rgba(140,220,130,.75)" stroke-width="1.3" fill="none"/><circle cx="97" cy="163" r="2" fill="rgba(120,200,110,.5)"/></g>
+      <g class="hsp"><path d="M109 133 Q107 151 106 163" stroke="rgba(140,220,130,.75)" stroke-width="1.3" fill="none"/><circle cx="105" cy="164" r="2" fill="rgba(120,200,110,.5)"/></g>
+      <g class="hsp"><path d="M123 133 Q124 150 125 162" stroke="rgba(140,220,130,.75)" stroke-width="1.3" fill="none"/><circle cx="125" cy="163" r="2" fill="rgba(120,200,110,.5)"/></g>
+      <g class="hsp"><path d="M137 133 Q135 151 134 163" stroke="rgba(140,220,130,.75)" stroke-width="1.3" fill="none"/><circle cx="133" cy="164" r="2" fill="rgba(120,200,110,.5)"/></g>
+      </svg>
+    </div><!-- end farm-heli -->
+
+    <!-- Farm scene text -->
+    <div class="fs-content">
+      <div class="eyebrow gold">Servicii Agricole</div>
+      <h2 class="big-h rv" style="color:var(--cream)">Zero Tasare.<br><em style="background:linear-gradient(135deg,var(--gold),var(--sky6));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-style:italic">Randament</em><br>Maxim.</h2>
+      <p class="body-copy rv">Fiecare trecere a tractorului compactează solul și distruge 8–12% din recoltă. Est Copter intervine chirurgical din aer — uniform, rapid, fără pierderi. Porumb, grâu, floarea-soarelui, rapiță, soia.</p>
+      <ul style="list-style:none;display:flex;flex-direction:column;gap:11px;margin-bottom:32px" class="rv">
+        <li style="display:flex;align-items:flex-start;gap:11px;font-size:13px;color:rgba(253,248,239,.75);line-height:1.5"><span style="font-size:16px;flex-shrink:0">🌽</span>Porumb, grâu, floarea-soarelui, rapiță, soia</li>
+        <li style="display:flex;align-items:flex-start;gap:11px;font-size:13px;color:rgba(253,248,239,.75);line-height:1.5"><span style="font-size:16px;flex-shrink:0">💧</span>Consum redus cu 30% față de aplicarea terestră</li>
+        <li style="display:flex;align-items:flex-start;gap:11px;font-size:13px;color:rgba(253,248,239,.75);line-height:1.5"><span style="font-size:16px;flex-shrink:0">🗺️</span>Traseu automat GPS — overlap 0% garantat</li>
+        <li style="display:flex;align-items:flex-start;gap:11px;font-size:13px;color:rgba(253,248,239,.75);line-height:1.5"><span style="font-size:16px;flex-shrink:0">🕐</span>200–400 ha/zi — de 10× mai rapid ca tractorul</li>
+      </ul>
+      <button class="btn-gold rv" style="align-self:flex-start">🌾 Programează Tratament Agricol</button>
+    </div>
+  </div><!-- end farm-scene -->
+</section>
+
+<!-- ═══ COMPARE ═══ -->
+<section id="compare">
+  <div class="comp-inner">
+    <div class="sec-header">
+      <span class="eyebrow gold" style="justify-content:center;margin-bottom:10px">Analiză Comparativă</span>
+      <h2 class="sec-title rv">De Ce <em>Est Copter</em><br>Câștigă Mereu?</h2>
+    </div>
+    <div class="comp-grid rv">
+      <div class="ccard win">
+        <span class="ccard-ic">🚁</span><div class="ccard-title">Est Copter Aerian</div>
+        <div class="ccard-sub">Intervenție precisă din aer · GPS tracking</div>
+        <div class="cmetrics">
+          <div class="crow"><span class="crow-name">Suprafață/zi</span><span class="crow-val g">200–400 ha</span></div>
+          <div class="crow"><span class="crow-name">Tasare sol</span><span class="crow-val g">0%</span></div>
+          <div class="crow"><span class="crow-name">Acoperire uniformă</span><span class="crow-val g">99.8%</span></div>
+          <div class="crow"><span class="crow-name">Consum produs</span><span class="crow-val g">−30%</span></div>
+          <div class="crow"><span class="crow-name">Zone inaccesibile</span><span class="crow-val g">✓ Da</span></div>
+          <div class="crow"><span class="crow-name">Pierderi sub roți</span><span class="crow-val g">Zero</span></div>
+        </div>
+      </div>
+      <div class="ccard">
+        <span class="ccard-ic">🚜</span><div class="ccard-title">Tractor Terestru</div>
+        <div class="ccard-sub">Metoda clasică · Limitată de teren</div>
+        <div class="cmetrics">
+          <div class="crow"><span class="crow-name">Suprafață/zi</span><span class="crow-val b">20–40 ha</span></div>
+          <div class="crow"><span class="crow-name">Tasare sol</span><span class="crow-val b">−12% yield</span></div>
+          <div class="crow"><span class="crow-name">Acoperire uniformă</span><span class="crow-val b">78–85%</span></div>
+          <div class="crow"><span class="crow-name">Consum produs</span><span class="crow-val b">Ridicat</span></div>
+          <div class="crow"><span class="crow-name">Zone inaccesibile</span><span class="crow-val b">✗ Nu</span></div>
+          <div class="crow"><span class="crow-name">Pierderi sub roți</span><span class="crow-val b">5–8%</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="pstats rv">
+      <div class="pstat"><div class="pstat-n">94%</div><div class="pstat-l">ROI pozitiv</div><div class="pstat-d">Clienți care recuperează investiția în primul sezon</div></div>
+      <div class="pstat"><div class="pstat-n">€8.200</div><div class="pstat-l">Economie / 100 ha</div><div class="pstat-d">Față de tratamentul terestru convențional</div></div>
+      <div class="pstat"><div class="pstat-n">3 zile</div><div class="pstat-l">vs. 3 săptămâni</div><div class="pstat-d">Timp tratament 1.000 ha — Est Copter vs. tractor</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ MAP ═══ -->
+<section id="mapzone">
+  <div class="mapzone-glow"></div>
+  <h2 class="big-h rv" style="color:var(--cream);text-align:center;margin-bottom:10px">Zonele de <em style="font-style:italic;color:var(--gold)">Intervenție</em></h2>
+  <p class="rv" style="text-align:center;font-size:16px;color:rgba(253,248,239,.55);margin-bottom:clamp(30px,5vh,52px);font-weight:300">120+ localități și zone agricole în România</p>
+  <div class="map-wrap rv">
+    <svg viewBox="0 0 500 380" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:680px">
+      <defs>
+        <filter id="mg2"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <linearGradient id="romG" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(74,158,40,.1)"/><stop offset="100%" stop-color="rgba(26,58,13,.14)"/>
+        </linearGradient>
+      </defs>
+      <path d="M130 40 L180 30 L230 35 L270 25 L310 30 L350 50 L390 45 L420 65 L430 100 L420 130 L440 155 L430 185 L410 210 L400 240 L380 270 L350 285 L320 295 L290 310 L260 315 L230 310 L200 300 L170 285 L145 260 L120 240 L100 210 L80 185 L70 155 L75 125 L90 100 L105 75 Z"
+        fill="url(#romG)" stroke="rgba(232,160,32,.35)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M100 210 Q150 242 200 257 Q260 272 310 267 Q360 262 382 252" fill="none" stroke="rgba(30,127,202,.4)" stroke-width="1.5" stroke-dasharray="6,4"/>
+      <!-- gold agri dots -->
+      <circle cx="155" cy="155" r="5" fill="var(--gold)" filter="url(#mg2)"><animate attributeName="r" values="5;7;5" dur="3s" repeatCount="indefinite"/></circle>
+      <circle cx="155" cy="155" r="15" fill="none" stroke="var(--gold)" stroke-width=".8"><animate attributeName="r" values="8;20;8" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values=".5;0;.5" dur="3s" repeatCount="indefinite"/></circle>
+      <circle cx="235" cy="115" r="5" fill="var(--gold)" filter="url(#mg2)"><animate attributeName="r" values="5;7;5" dur="3s" begin=".5s" repeatCount="indefinite"/></circle>
+      <circle cx="235" cy="115" r="15" fill="none" stroke="var(--gold)" stroke-width=".8"><animate attributeName="r" values="8;20;8" dur="3s" begin=".5s" repeatCount="indefinite"/><animate attributeName="opacity" values=".5;0;.5" dur="3s" begin=".5s" repeatCount="indefinite"/></circle>
+      <circle cx="325" cy="135" r="5" fill="var(--gold)" filter="url(#mg2)"><animate attributeName="r" values="5;7;5" dur="3s" begin="1s" repeatCount="indefinite"/></circle>
+      <circle cx="200" cy="195" r="5" fill="var(--gold)" filter="url(#mg2)"><animate attributeName="r" values="5;7;5" dur="3s" begin="1.5s" repeatCount="indefinite"/></circle>
+      <circle cx="285" cy="225" r="5" fill="var(--gold)" filter="url(#mg2)"><animate attributeName="r" values="5;7;5" dur="3s" begin="2s" repeatCount="indefinite"/></circle>
+      <circle cx="365" cy="195" r="5" fill="var(--gold)" filter="url(#mg2)"><animate attributeName="r" values="5;7;5" dur="3s" begin=".7s" repeatCount="indefinite"/></circle>
+      <circle cx="165" cy="245" r="5" fill="var(--gold)" filter="url(#mg2)"><animate attributeName="r" values="5;7;5" dur="3s" begin="1.3s" repeatCount="indefinite"/></circle>
+      <!-- blue urban -->
+      <circle cx="192" cy="165" r="6" fill="#1e7fca" filter="url(#mg2)"><animate attributeName="r" values="6;8;6" dur="2.5s" repeatCount="indefinite"/></circle>
+      <circle cx="192" cy="165" r="16" fill="none" stroke="#1e7fca" stroke-width=".8"><animate attributeName="r" values="9;22;9" dur="2.5s" repeatCount="indefinite"/><animate attributeName="opacity" values=".4;0;.4" dur="2.5s" repeatCount="indefinite"/></circle>
+      <circle cx="262" cy="150" r="6" fill="#1e7fca" filter="url(#mg2)"><animate attributeName="r" values="6;8;6" dur="2.5s" begin=".8s" repeatCount="indefinite"/></circle>
+      <circle cx="345" cy="165" r="6" fill="#1e7fca" filter="url(#mg2)"><animate attributeName="r" values="6;8;6" dur="2.5s" begin="1.6s" repeatCount="indefinite"/></circle>
+      <circle cx="130" cy="185" r="6" fill="#1e7fca" filter="url(#mg2)"><animate attributeName="r" values="6;8;6" dur="2.5s" begin=".4s" repeatCount="indefinite"/></circle>
+      <text x="184" y="157" font-family="Barlow Condensed,sans-serif" font-size="8" fill="rgba(253,248,239,.7)" font-weight="700">București</text>
+      <text x="254" y="142" font-family="Barlow Condensed,sans-serif" font-size="8" fill="rgba(253,248,239,.7)" font-weight="700">Brașov</text>
+      <text x="337" y="157" font-family="Barlow Condensed,sans-serif" font-size="8" fill="rgba(253,248,239,.7)" font-weight="700">Iași</text>
+      <text x="118" y="177" font-family="Barlow Condensed,sans-serif" font-size="8" fill="rgba(253,248,239,.7)" font-weight="700">Cluj</text>
+    </svg>
+  </div>
+  <div class="mleg-wrap">
+    <div class="mleg"><div class="mldot"></div>Tratamente Agricole Active</div>
+    <div class="mleg"><div class="mldot blue"></div>Intervenții Urbane Active</div>
+  </div>
+</section>
+
+<!-- ═══ PROCESS ═══ -->
+<section id="process">
+  <div class="proc-inner">
+    <span class="eyebrow gold">Proces Transparent</span>
+    <h2 class="sec-title rv" style="margin-top:10px">De la Telefon la <em>Câmp</em><br>în 48 de Ore.</h2>
+    <div class="pgrid">
+      <div class="pstep rv"><div class="pn">01</div><span class="pic">📞</span><div class="ptitle">Consultare Gratuită</div><div class="pbody">Suni, trimiți suprafața. În 2 ore ai oferta completă, fără costuri ascunse.</div></div>
+      <div class="pstep rv"><div class="pn">02</div><span class="pic">🗺️</span><div class="ptitle">Planificare GPS</div><div class="pbody">Cartografiem ruta cu precizie centimetrică. Definim parametrii pentru fiecare parcelă.</div></div>
+      <div class="pstep rv"><div class="pn">03</div><span class="pic">🚁</span><div class="ptitle">Zbor & Tratament</div><div class="pbody">Pilot certificat, monitorizare live. Deplasare în max. 48h de la confirmare.</div></div>
+      <div class="pstep rv"><div class="pn">04</div><span class="pic">📋</span><div class="ptitle">Raport & Garanție</div><div class="pbody">Raport GPS complet, certificat tratament, garanție acoperire 99.8%.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TESTIMONIALS ═══ -->
+<section id="testi">
+  <div class="testi-wm">"</div>
+  <div style="max-width:1180px;margin:0 auto">
+    <span class="eyebrow gold">Rezultate Reale</span>
+    <h2 class="big-h rv" style="color:var(--cream);margin-top:10px">120+ Fermieri<br>Ne-au <em style="font-style:italic;color:var(--gold)">Ales.</em></h2>
+    <div class="tgrid">
+      <div class="tcard rv"><div class="troi">ROI +€14.200 primul sezon</div><div class="tstars">★★★★★</div><p class="ttext">Am tratat 800 ha de floarea-soarelui în 2 zile. Cu tractorul ar fi durat 3 săptămâni. Calitatea aplicării e incomparabilă — uniformitate perfectă, zero pierderi sub roți.</p><div class="tauthor"><div class="tav">IM</div><div><div class="tname">ION MOLDOVAN</div><div class="trole">Fermier, Brăila · 2.400 ha cultivate</div></div></div></div>
+      <div class="tcard rv"><div class="troi">300 sesizări → 0 în 48h</div><div class="tstars">★★★★★</div><p class="ttext">Vara trecută primeam 300 de sesizări pe zi despre țânțari. Est Copter a rezolvat problema în 2 zboruri. Cetățenii au observat diferența imediat.</p><div class="tauthor"><div class="tav">AS</div><div><div class="tname">ANDREI STANCU</div><div class="trole">Director Servicii Publice · Municipiu Est</div></div></div></div>
+      <div class="tcard rv"><div class="troi">4 ani consecutivi client</div><div class="tstars">★★★★★</div><p class="ttext">Contractăm Est Copter de 4 sezoane. Nu am mai văzut tasare, nu am mai pierdut recoltă din cauza roților. Raportul GPS dovedește că fiecare centimetru a fost tratat.</p><div class="tauthor"><div class="tav">GP</div><div><div class="tname">GHEORGHE POPA</div><div class="trole">Administrator Fermă · Teleorman · 1.800 ha</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA ═══ -->
+<section id="cta">
+  <div class="cta-sky"></div>
+  <div class="cta-fieldrows"></div>
+  <div class="cta-c">
+    <div class="scarce rv">🔴 Capacitate limitată — <span id="slotsLeft">7</span> locuri luna aceasta</div>
+    <div class="cd-wrap rv">
+      <div class="cdu"><span class="cdn" id="cd-d">00</span><div class="cdl">Zile</div></div>
+      <span class="cdsep">:</span>
+      <div class="cdu"><span class="cdn" id="cd-h">00</span><div class="cdl">Ore</div></div>
+      <span class="cdsep">:</span>
+      <div class="cdu"><span class="cdn" id="cd-m">00</span><div class="cdl">Minute</div></div>
+      <span class="cdsep">:</span>
+      <div class="cdu"><span class="cdn" id="cd-s">00</span><div class="cdl">Secunde</div></div>
+    </div>
+    <h2 class="cta-h2 rv">Acționează<br><em>Acum.</em></h2>
+    <p class="cta-sub rv">Fereastra de tratament pentru sezonul curent se închide. Rezervă astăzi și primești consultanță agronomică gratuită.</p>
+    <div class="cta-btns rv">
+      <button class="btn-gold">🌾 Rezervă Locul Tău</button>
+      <button class="btn-outline">📞 Vorbește cu un Specialist</button>
+    </div>
+    <div class="social-proof rv">
+      <div class="sp-faces">
+        <div class="spface">IM</div><div class="spface">GP</div><div class="spface">AS</div>
+        <div class="spface">MV</div><div class="spface">+</div>
+      </div>
+      <span>120+ fermieri au rezervat deja în această lună</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div>
+    <div class="fb-logo"><div class="nlogo-ic">🚁</div><div><span class="nlogo-txt">Est Copter</span><span class="nlogo-sub">Aviație Agricolă</span></div></div>
+    <p class="ft-desc">Aviație utilitară de precizie pentru agricultura românească. Din 2009, zburăm acolo unde alții se opresc.</p>
+    <div class="ft-cert">✓ Certificat AACR · ANSVSA · EASA</div>
+  </div>
+  <div class="fcol"><h4>Servicii</h4><ul><li><a href="#">Tratamente Cerealiere</a></li><li><a href="#">Combatere Dăunători</a></li><li><a href="#">Intervenții Urbane</a></li><li><a href="#">Monitorizare Drone</a></li></ul></div>
+  <div class="fcol"><h4>Companie</h4><ul><li><a href="#">Despre Noi</a></li><li><a href="#">Flotă & Echipamente</a></li><li><a href="#">Certificări</a></li><li><a href="#">Cariere</a></li></ul></div>
+  <div class="fcol"><h4>Contact</h4><ul><li><a href="#">+40 XXX XXX XXX</a></li><li><a href="#">office@estcopter.ro</a></li><li><a href="#">Programări Online</a></li><li><a href="#">Urgențe 24/7</a></li></ul></div>
+</footer>
+<div class="ft-bottom">
+  <p>© 2025 Est Copter SRL · Toate drepturile rezervate.</p>
+  <p style="color:var(--gold);letter-spacing:3px">PRECISION FROM ABOVE</p>
+</div>
+
+<script>
+/* ── CURSOR ── */
+const C=document.getElementById('cur'),R=document.getElementById('cring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;C.style.left=mx+'px';C.style.top=my+'px'});
+(function ar(){rx+=(mx-rx)*.12;ry+=(my-ry)*.12;R.style.left=rx+'px';R.style.top=ry+'px';requestAnimationFrame(ar)})();
+document.querySelectorAll('button,a').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{C.style.width='16px';C.style.height='16px';R.style.borderColor='rgba(232,160,32,.9)'});
+  el.addEventListener('mouseleave',()=>{C.style.width='8px';C.style.height='8px';R.style.borderColor='rgba(232,160,32,.55)'});
+});
+
+/* ── PROGRESS ── */
+window.addEventListener('scroll',()=>{
+  document.getElementById('pbar').style.width=(window.scrollY/(document.body.scrollHeight-innerHeight)*100)+'%';
+},{ passive:true });
+
+/* ── MOBILE MENU ── */
+function tm(){document.getElementById('mmenu').classList.toggle('open');document.getElementById('hambtn').classList.toggle('open')}
+function cm(){document.getElementById('mmenu').classList.remove('open');document.getElementById('hambtn').classList.remove('open')}
+
+/* ── CLOUDS WITH AGRICULTURAL TEXTURE ── */
+function makeCloud(container, opts){
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `position:absolute;top:${opts.top}%;animation:cloudMove ${opts.dur}s linear infinite;animation-delay:-${opts.dur*opts.phase}s`;
+  // main cloud puff assembly
+  const puffs = [[0,0,opts.w*.45,opts.h],[opts.w*.25,-opts.h*.4,opts.w*.35,opts.h*.8],[opts.w*.55,-opts.h*.25,opts.w*.3,opts.h*.75],[opts.w*.75,-opts.h*.15,opts.w*.25,opts.h*.65]];
+  puffs.forEach(([x,y,w,h])=>{
+    const p=document.createElement('div');
+    p.style.cssText=`position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:rgba(255,255,255,${opts.opacity||.82});border-radius:50%;filter:blur(${h*.1}px)`;
+    wrap.appendChild(p);
+  });
+  container.appendChild(wrap);
+}
+const cl=document.getElementById('cloud-layer');
+const clouds=[
+  {top:6, w:200,h:55,dur:70,phase:.1,opacity:.78},
+  {top:15,w:140,h:38,dur:90,phase:.35,opacity:.68},
+  {top:4, w:280,h:70,dur:60,phase:.6, opacity:.85},
+  {top:22,w:110,h:30,dur:80,phase:.8, opacity:.62},
+  {top:9, w:180,h:48,dur:75,phase:.25,opacity:.72},
+  {top:18,w:160,h:44,dur:65,phase:.55,opacity:.75},
+];
+clouds.forEach(c=>makeCloud(cl,c));
+
+const fcl=document.getElementById('farm-cloud-layer');
+[
+  {top:5,w:180,h:48,dur:65,phase:.2,opacity:.72},
+  {top:12,w:120,h:32,dur:82,phase:.6,opacity:.65},
+  {top:3,w:240,h:62,dur:72,phase:.4,opacity:.78},
+].forEach(c=>makeCloud(fcl,c));
+
+/* ── AGRICULTURAL FLOATING PARTICLES (wheat, corn, seeds) ── */
+const agriLayer = document.getElementById('agri-layer');
+const agriItems = ['🌾','🌽','🌻','🌿','🍃','🌱','🌾','🌽'];
+for(let i=0;i<18;i++){
+  const el=document.createElement('div');
+  el.className='agri-float';
+  const item=agriItems[Math.floor(Math.random()*agriItems.length)];
+  const size=Math.random()*16+10;
+  const left=Math.random()*100;
+  const top=Math.random()*75+5;
+  const dur=Math.random()*8+6;
+  const delay=Math.random()*12;
+  const dx=(Math.random()-0.5)*100;
+  const dy=-50-Math.random()*80;
+  const dr=(Math.random()-0.5)*40;
+  el.style.cssText=`left:${left}%;top:${top}%;font-size:${size}px;` +
+    `--dx:${dx}px;--dy:${dy}px;--dr:${dr}deg;` +
+    `animation:${Math.random()>.5?'wheatFloat':'cornDrift'} ${dur}s ${delay}s ease-in-out infinite`;
+  el.textContent=item;
+  agriLayer.appendChild(el);
+}
+
+/* ── SCROLL REVEAL ── */
+const ro=new IntersectionObserver(entries=>{
+  entries.forEach((e,i)=>{if(e.isIntersecting){setTimeout(()=>e.target.classList.add('on'),i*70);ro.unobserve(e.target)}});
+},{threshold:.1});
+document.querySelectorAll('.rv,.rvs').forEach(el=>ro.observe(el));
+
+/* ── LOSS METERS ── */
+const lmObs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      setTimeout(()=>{
+        document.getElementById('lm1').style.width='72%';
+        document.getElementById('lm2').style.width='97%';
+        document.getElementById('lm3').style.width='100%';
+        document.getElementById('lm4').style.width='55%';
+      },400);
+      lmObs.unobserve(e.target);
+    }
+  });
+},{threshold:.5});
+const lmEl=document.getElementById('lossMeters');
+if(lmEl)lmObs.observe(lmEl);
+
+/* ── COUNTDOWN ── */
+function updateCD(){
+  const now=new Date(),end=new Date(now.getFullYear(),now.getMonth()+1,1);
+  let diff=Math.max(0,end-now);
+  const d=Math.floor(diff/864e5);diff-=d*864e5;
+  const h=Math.floor(diff/36e5);diff-=h*36e5;
+  const m=Math.floor(diff/6e4);diff-=m*6e4;
+  const s=Math.floor(diff/1e3);
+  const p=n=>String(n).padStart(2,'0');
+  document.getElementById('cd-d').textContent=p(d);
+  document.getElementById('cd-h').textContent=p(h);
+  document.getElementById('cd-m').textContent=p(m);
+  document.getElementById('cd-s').textContent=p(s);
+}
+updateCD();setInterval(updateCD,1000);
+
+/* ── SCARCITY COUNTDOWN ── */
+let slots=7;
+setInterval(()=>{
+  if(Math.random()<.18&&slots>2){
+    slots--;
+    const el=document.getElementById('slotsLeft');
+    if(el){el.textContent=slots;el.style.color='#ff9090';el.style.transform='scale(1.3)';
+      setTimeout(()=>{el.style.color='';el.style.transform=''},600)}
+  }
+},9000);
+
+/* ── RESPONSIVE HELI SIZE ── */
+function resizeHelis(){
+  const hw=document.getElementById('hero-heli');
+  const fh=document.getElementById('farm-heli');
+  if(!hw||!fh)return;
+  const sv=hw.querySelector('svg'),fv=fh.querySelector('svg');
+  const vw=innerWidth;
+  const hs=vw<480?130:vw<768?160:200;
+  sv.setAttribute('width',hs);sv.setAttribute('height',Math.round(hs*.6));
+  const fs=vw<480?110:vw<768?140:160;
+  fv.setAttribute('width',fs);fv.setAttribute('height',Math.round(fs*.5625));
+}
+resizeHelis();
+window.addEventListener('resize',resizeHelis);
+</script>
+</body>
+</html>
